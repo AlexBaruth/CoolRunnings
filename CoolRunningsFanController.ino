@@ -6,7 +6,6 @@
 */
 /*-----( Import needed libraries )-----*/
 #include <Arduino.h>
-#include <Wire.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <LiquidCrystal_I2C.h>
@@ -22,7 +21,7 @@ DallasTemperature sensors(&oneWire);
 /*-----( Declare Variables )-----*/
 
 LiquidCrystal_I2C lcd(0x3F, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);             // Set the LCD I2C address different for some modules
-DeviceAddress Probe01 = { 0x28, 0xFF, 0x4E, 0xD6, 0xC1, 0x16, 0x04, 0xD4 };
+DeviceAddress Probe01 = { 0x28, 0xFF, 0x4E, 0xD6, 0xC1, 0x16, 0x04, 0xD4 };  //Add unique onewire sensor DS18B20 IDs here 
 DeviceAddress Probe02 = { 0x28, 0xFF, 0xAC, 0x8F, 0x90, 0x16, 0x05, 0x48 };
 
 int fanpwr = 9;   //Fan Pin Must be PWM pin
@@ -31,11 +30,11 @@ int yled = 8;     //Yellow LED
 int rled = 7;     //Red LED
 unsigned long lastmillis_term = 0;
 unsigned long lastmillis_fan = 0;
-unsigned long previousMillis = 0;        // will store last time
+unsigned long previousMillis = 0;        
 volatile unsigned long NbTopsFan1;
 volatile unsigned long NbTopsFan2;
 int hallsensor1 = 2;                    //Arduino pins 2 and 3 must be used - interrupt 0
-int hallsensor2 = 3;                    //Arduino pins 2 and 3 must be used - interrupt 1
+int hallsensor2 = 3;                    //interrupt 1
 unsigned long totcalc1;
 unsigned long totcalc2;
 int rpmcalc1;
@@ -51,6 +50,7 @@ boolean highled;
 boolean autobled = true;
 boolean autoupdate = false;
 boolean contemp = true;
+boolean variableFan = false;
 float tempIn;
 float tempOut;
 int pwmlow = 70;   // PWM defaults
@@ -63,6 +63,10 @@ char junk = ' ';
 unsigned long looptime = 10000;
 unsigned long looptimeSec = 10;
 
+int pwmFan = 0;
+int pwmFanSerial = 0;
+float disparity;
+float fanPercent;
 
 typedef struct fan1
 {
@@ -104,7 +108,7 @@ void setTemp();
 void pollTime();
 int readtemps(DeviceAddress);
 void serialoutput();
-
+void autoFan();
 
 
 void setup() {
@@ -152,6 +156,8 @@ void loop() {
   autocontrol();
 
 
+  pwmFan = constrain(pwmFan, 0, 255);
+
   if (millis() - lastmillis_fan >= 2000)         // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
   {
     lastmillis_fan = millis();                   // Update lasmillis
@@ -187,18 +193,10 @@ void loop() {
       serialoutput();
     }
   }
-  if (tempIn == (-196.6 || -127) || tempOut == (-196.6 || -127)) //if sensors read -196.6 fahrenheit or -127 C they missing or not being read correctly, unless hell has frozen over
 
-  {
-    Serial.println("Error getting temperatures  ");
-    lcd.setCursor(0, 0);
-    lcd.print("Error getting   ");
-    lcd.setCursor(0, 1);
-    lcd.print("  Temperatures  ");
-  }
-  else
-  {
-
+  if ( variableFan == true) {
+    autoFan();
+    fanPercent = ((pwmFanSerial / 255.0) * 100); //add .0 after 255 to cast to float
     lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
     lcd.print("T1 ");
     lcd.print(tempIn, 1);                       //print temperature and show one decimal place
@@ -208,10 +206,38 @@ void loop() {
     lcd.print(tempOut, 1);
     lcd.print("  ");
     lcd.setCursor(0, 1);                        //Start at character 0 on line 1
-    lcd.print("Fan: ");
-
+    lcd.print("Pwr:");
+    lcd.print(fanPercent, 0);
+    lcd.print("%  D:");
+    lcd.print(disparity, 1);
+    lcd.print("  ");
   }
+  else {
+    if (tempIn == (-196.6 || -127) || tempOut == (-196.6 || -127)) //if sensors read -196.6 fahrenheit or -127 C they missing or not being read correctly, unless hell has frozen over
 
+    {
+      Serial.println("Error getting temperatures  ");
+      lcd.setCursor(0, 0);
+      lcd.print("Error getting   ");
+      lcd.setCursor(0, 1);
+      lcd.print("  Temperatures  ");
+    }
+    else
+    {
+
+      lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
+      lcd.print("T1 ");
+      lcd.print(tempIn, 1);                       //print temperature and show one decimal place
+      lcd.print(" ");
+      lcd.setCursor(8, 0);                        //Start at character 8 on line 0
+      lcd.print("T2 ");
+      lcd.print(tempOut, 1);
+      lcd.print("  ");
+      lcd.setCursor(0, 1);                        //Start at character 0 on line 1
+      lcd.print("Fan: ");
+
+    }
+  }
   if (automode == true)
   {
     lcd.print("Auto ");
@@ -289,30 +315,35 @@ void handleSerial() {
 
       case 'a':
         automode = true;
+        variableFan = false;
         break;
 
       case 'l':
         analogWrite(fanpwr, pwmlow);
         automode = false;
         fanmode = "Low";
+        variableFan = false;
         break;
 
       case 'm':
         analogWrite(fanpwr, pwmmed);
         automode = false;
         fanmode = "Medium";
+        variableFan = false;
         break;
 
       case 'h':
         analogWrite(fanpwr, pwmhigh);
         automode = false;
         fanmode = "High";
+        variableFan = false;
         break;
 
       case 'k':
         analogWrite(fanpwr, 0);
         automode = false;
         fanmode = "Kill";
+        variableFan = false;
         break;
 
       case 'b':
@@ -366,16 +397,22 @@ void handleSerial() {
       case 'i':
         pollTime();
         break;
-      
+
       case 'q':
         lcd.begin(16, 2);
         break;
-      
+
+      case 'v':
+        variableFan = true;
+        automode = false;
+        break;
+
       case '?':
         Serial.println();
         Serial.println(F("Serial Commands"));
         Serial.println(F("o = Show Control Output"));
         Serial.println(F("a = Automode On"));
+        Serial.println(F("v = Continuously Variable Fan Mode"));
         Serial.println(F("l = Manual Fan Low"));
         Serial.println(F("m = Manual Fan Medium"));
         Serial.println(F("h = Manual Fan High"));
@@ -411,60 +448,60 @@ int readtemps(DeviceAddress)   //temp sensor reading
   }
 }
 
-/*
+
 void autocontrol()            //temp based control
 {
-  if ((tempIn > tempOut + lowTemp) && (tempIn <= tempOut + medTemp) && automode)      //threshold temps for low auto speed here
+  if ((tempIn > tempOut + lowTemp) && (tempIn <= tempOut + medTemp) && automode && !variableFan)      //threshold temps for low auto speed here
   {
     analogWrite(fanpwr, pwmlow);                                           //low pwm setting here
     fanmode = "Low";
   }
-  else if ((tempIn > tempOut + medTemp) && (tempIn <= tempOut + highTemp) && automode)   //threshold temps for medium auto speed here
+  else if ((tempIn > tempOut + medTemp) && (tempIn <= tempOut + highTemp) && automode && !variableFan)   //threshold temps for medium auto speed here
   {
     analogWrite(fanpwr, pwmmed);                                           //medium pwm setting here
     fanmode = "Medium";
   }
-  else if ((tempIn > tempOut + highTemp) && automode)                            //threshold temps for high auto speed here
+  else if ((tempIn > tempOut + highTemp) && automode && !variableFan)                            //threshold temps for high auto speed here
   {
     analogWrite(fanpwr, pwmhigh);                                           //high pwm setting here maximum is 255(not actually pwm anymore)
     fanmode = "High";
   }
-  else if (automode)                                                    //auto mode is true if manual mode is off
+  else if (automode && !variableFan)                                                    //auto mode is true if manual mode is off
   {
     analogWrite(fanpwr, 0);                                             //fan is off if non of above criteria is met
     fanmode = "Off";
   }
 }
-*/
-void autocontrol()            //temp based control
-{
+/*
+  void autocontrol()            //temp based control
+  {
 
-if (tempIn > 70)
-{
-  
-  if ((tempIn > tempOut + lowTemp) && (tempIn <= tempOut + medTemp) && automode)      //threshold temps for low auto speed here
+  if (tempIn > 70)
   {
-    analogWrite(fanpwr, pwmlow);                                           //low pwm setting here
-    fanmode = "Low";
+
+    if ((tempIn > tempOut + lowTemp) && (tempIn <= tempOut + medTemp) && automode && !variableFan)      //threshold temps for low auto speed here
+    {
+      analogWrite(fanpwr, pwmlow);                                           //low pwm setting here
+      fanmode = "Low";
+    }
+    else if ((tempIn > tempOut + medTemp) && (tempIn <= tempOut + highTemp) && automode && !variableFan)   //threshold temps for medium auto speed here
+    {
+      analogWrite(fanpwr, pwmmed);                                           //medium pwm setting here
+      fanmode = "Medium";
+    }
+    else if ((tempIn > tempOut + highTemp) && automode && !variableFan)                            //threshold temps for high auto speed here
+    {
+      analogWrite(fanpwr, pwmhigh);                                           //high pwm setting here maximum is 255(not actually pwm anymore)
+      fanmode = "High";
+    }
   }
-  else if ((tempIn > tempOut + medTemp) && (tempIn <= tempOut + highTemp) && automode)   //threshold temps for medium auto speed here
-  {
-    analogWrite(fanpwr, pwmmed);                                           //medium pwm setting here
-    fanmode = "Medium";
-  }
-  else if ((tempIn > tempOut + highTemp) && automode)                            //threshold temps for high auto speed here
-  {
-    analogWrite(fanpwr, pwmhigh);                                           //high pwm setting here maximum is 255(not actually pwm anymore)
-    fanmode = "High";
-  }
-}
   else if (tempIn <= 70 && automode)                                                    //auto mode is true if manual mode is off
   {
     analogWrite(fanpwr, 0);                                             //fan is off if non of above criteria is met
     fanmode = "Off";
   }
-}
-
+  }
+*/
 void setpwm()
 {
   Serial.println("Enter a value from 0 to 255 for fan low power setting.(default 70)");
@@ -583,13 +620,14 @@ void serialoutput()
   Serial.print ("Fan Speed: ");
   Serial.println (fanmode);
 
-  if (automode == true)
-  {
 
-    Serial.println(F("Mode: Auto"));
+  if (automode == true){
+    Serial.println(F("Mode: Auto (Incrementally Variable)"));
   }
-  else
-  {
+  else if (variableFan == true){
+    Serial.println(F("Mode: Auto (Continuously Variable)"));
+    } 
+  else{
     Serial.println(F("Mode: Manual"));
   }
 
@@ -682,6 +720,39 @@ void pollTime()
     looptime = (looptimeSec * 1000);
     Serial.println("Done!");
   }
+}
 
+void autoFan() {
+
+  variableFan = true;
+
+  if (tempIn >= (tempOut) + lowTemp) {
+    pwmFan = ((disparity * 25.5) + 19);
+  }
+  else {
+    pwmFan = 0;
+  }
+  disparity = (tempIn - tempOut);
+
+  if (pwmFan >= 255) {
+    pwmFanSerial = 255;
+  }
+  else {
+    pwmFanSerial = pwmFan;
+  }
+  analogWrite(fanpwr, pwmFan);
+
+if (fanPercent == 0){                             //As the fan won't spin until ~27% power, move the scale up a bit to compensate.
+  fanmode = "Off";
+}
+else if ((fanPercent <= 51) && (fanPercent > 0)){
+  fanmode = "Low";
+}
+else if ((fanPercent > 51) && (fanPercent <= 75)){
+  fanmode = "Medium";
+}
+else if (fanPercent > 75){
+  fanmode = "High";
+}
 }
 
