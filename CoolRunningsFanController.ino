@@ -740,12 +740,13 @@ void autoFan() {
   offSet = (pwmLow - (lowTemp * multiplier));   //the fan won't work until a threshhold pwm is met
   disparity = (tempIn - tempOut);
 
-  if ((tempIn >= tempOut) + lowTemp) {
+  if (tempIn >= (tempOut + lowTemp)) {
     pwmFan = ((disparity * multiplier) + offSet);
   }
   else {
     pwmFan = 0;
   }
+  analogWrite(fanpwr, pwmFan);
 
   if (pwmFan >= 255) {
     pwmFanSerial = 255;
@@ -753,9 +754,8 @@ void autoFan() {
   else {
     pwmFanSerial = pwmFan;
   }
-  analogWrite(fanpwr, pwmFan);
-
-  if (fanPercent == 0) {                            //As the fan won't spin until ~27% power, move the scale up a bit to compensate.
+                                                    //Set fan mode which controls indicator LEDs
+  if (fanPercent == 0) {                            //The fan won't spin until ~27% power(70PWM), move the scale up a bit to compensate.
     fanmode = "Off";
   }
   else if ((fanPercent <= 51) && (fanPercent > 0)) {
