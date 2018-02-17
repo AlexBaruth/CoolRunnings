@@ -64,7 +64,7 @@ unsigned long looptime = 10000;
 unsigned long looptimeSec = 10;
 
 int pwmFan = 0;
-int pwmFanSerial = 0;
+int pwmFanConst = 0;
 float disparity;
 float fanPercent;
 
@@ -156,9 +156,8 @@ void loop() {
   autocontrol();
 
 
-  pwmFan = constrain(pwmFan, 0, 255);
   disparity = (tempIn - tempOut);
-  
+
   if (millis() - lastmillis_fan >= 2000)         // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
   {
     lastmillis_fan = millis();                   // Update lasmillis
@@ -197,7 +196,7 @@ void loop() {
 
   if ( variableFan == true) {
     autoFan();
-    fanPercent = ((pwmFanSerial / 255.0) * 100); //add .0 after 255 to cast to float
+    fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
     lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
     lcd.print("T1 ");
     lcd.print(tempIn, 1);                       //print temperature and show one decimal place
@@ -732,12 +731,13 @@ void pollTime()
 
 void autoFan() {
   variableFan = true;
+  pwmFanConst = constrain(pwmFan, 0, 255);
 
   int offSet;
   int multiplier;
 
   multiplier = (255 / highTemp);                //how much the pwm should be affected by each degree changed
-  offSet = (pwmLow - (lowTemp * multiplier));   //the fan won't work until a threshhold pwm is met
+  offSet = (pwmLow - (lowTemp * multiplier));   //when lowTemp threshold is met, increase pwm to pwmLow value
   disparity = (tempIn - tempOut);
 
   if (tempIn >= (tempOut + lowTemp)) {
@@ -746,15 +746,10 @@ void autoFan() {
   else {
     pwmFan = 0;
   }
-  analogWrite(fanpwr, pwmFan);
+  analogWrite(fanpwr, pwmFanConst);
 
-  if (pwmFan >= 255) {
-    pwmFanSerial = 255;
-  }
-  else {
-    pwmFanSerial = pwmFan;
-  }
-                                                    //Set fan mode which controls indicator LEDs
+
+  //Set fan mode which controls indicator LEDs
   if (fanPercent == 0) {                            //The fan won't spin until ~27% power(70PWM), move the scale up a bit to compensate.
     fanmode = "Off";
   }
