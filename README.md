@@ -1,4 +1,4 @@
-CoolRunnings Fan Controller for Arduino 
+CoolRunnings Fan Controller for Arduino
 
 
 This sketch is for the CoolRunnings v3 PC fan controller board.  It has been tested on the Atmel328p, but should also work on other AVRs.
@@ -28,6 +28,12 @@ These libraries should also be available through the Arduino IDE
 Menu: Sketch -> Include Library -> Manage Libraries
 
 Arduino library (included with IDE)
+
 OneWire - https://github.com/PaulStoffregen/OneWire
 DallasTemperature - https://github.com/milesburton/Arduino-Temperature-Control-Library
 LiquidCrystal_I2C - https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
+
+DS18B20 Pinout(Left to Right, pins down, flat side toward you)
+- Left = Ground
+- Center = Signal (with 3.3 K to 4.7 K resistor to 5 or 3.3 V)
+- Right = +5 or + 3.3 V

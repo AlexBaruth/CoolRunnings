@@ -1,9 +1,3 @@
-/*
-  DS18B20 Pinout(Left to Right, pins down, flat side toward you)
-  - Left = Ground - Center = Signal(Pin 2):(with 3.3 K to 4.7 K resistor to +
-  5 or 3.3)
-    - Right = +5 or + 3.3 V
-*/
 /*-----( Import needed libraries )-----*/
 #include <Arduino.h>
 #include <OneWire.h>
@@ -18,12 +12,11 @@ OneWire oneWire(ONE_WIRE_BUS_PIN);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 
-/*-----( Declare Variables )-----*/
-
 LiquidCrystal_I2C lcd(0x3F, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);             // Set the LCD I2C address different for some modules
 DeviceAddress Probe01 = { 0x28, 0xFF, 0x4E, 0xD6, 0xC1, 0x16, 0x04, 0xD4 };  //Add unique onewire sensor DS18B20 IDs here
 DeviceAddress Probe02 = { 0x28, 0xFF, 0xAC, 0x8F, 0x90, 0x16, 0x05, 0x48 };
 
+/*-----( Declare Variables )-----*/
 int fanpwr = 9;   //Fan Pin Must be PWM pin
 int gled = 5;     //Green LED
 int yled = 8;     //Yellow LED
@@ -45,8 +38,6 @@ boolean automode = true;
 char *fanmode;
 boolean manled;
 boolean lowled;
-boolean medled;
-boolean highled;
 boolean autobled = true;
 boolean autoupdate = false;
 boolean contemp = true;
@@ -181,8 +172,8 @@ void loop() {
   }// End fan code here
 
 
-  if (millis() - lastmillis_term >= looptime)         // Interval at which to run code
-  {
+  if (millis() - lastmillis_term >= looptime) {       // Interval at which to run code
+
     lastmillis_term = millis();                   // Update lasmillis
     // Command all devices on bus to read temperature
 
@@ -210,34 +201,22 @@ void loop() {
     lcd.print(fanPercent, 0);
     lcd.print("%  D:");
     lcd.print(disparity, 1);
+    lcd.print("   ");
+  }
+  else
+  {
+    lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
+    lcd.print("T1 ");
+    lcd.print(tempIn, 1);                       //print temperature and show one decimal place
+    lcd.print(" ");
+    lcd.setCursor(8, 0);                        //Start at character 8 on line 0
+    lcd.print("T2 ");
+    lcd.print(tempOut, 1);
     lcd.print("  ");
+    lcd.setCursor(0, 1);                        //Start at character 0 on line 1
+    lcd.print("Fan: ");
   }
-  else {
-    if (tempIn == (-196.6 || -127) || tempOut == (-196.6 || -127)) //if sensors read -196.6 fahrenheit or -127 C they missing or not being read correctly, unless hell has frozen over
 
-    {
-      Serial.println("Error getting temperatures  ");
-      lcd.setCursor(0, 0);
-      lcd.print("Error getting   ");
-      lcd.setCursor(0, 1);
-      lcd.print("  Temperatures  ");
-    }
-    else
-    {
-
-      lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
-      lcd.print("T1 ");
-      lcd.print(tempIn, 1);                       //print temperature and show one decimal place
-      lcd.print(" ");
-      lcd.setCursor(8, 0);                        //Start at character 8 on line 0
-      lcd.print("T2 ");
-      lcd.print(tempOut, 1);
-      lcd.print("  ");
-      lcd.setCursor(0, 1);                        //Start at character 0 on line 1
-      lcd.print("Fan: ");
-
-    }
-  }
   if (automode == true)
   {
     lcd.print("Auto ");
@@ -248,21 +227,9 @@ void loop() {
   }
   lcd.print(fanmode);
   lcd.print("   ");
-  /*
-        lcd.print("F1 ");
-        lcd.print(rpmcalc1);
-        lcd.print("  ");
-        lcd.setCursor(8, 1);                        //Start at character 8 on line 1
-        lcd.print("F2 ");
-        lcd.print(rpmcalc2);
-        lcd.print("  ");
-  */
-  //  }
 
 
   lowled = digitalRead(gled); // read state of fan low speed led
-  medled = digitalRead(yled);
-  highled = digitalRead(rled);
 
   //Backlight controls
   if (manled == false && autobled == false) //manual off
@@ -472,36 +439,7 @@ void autocontrol()            //temp based control
     fanmode = "Off";
   }
 }
-/*
-  void autocontrol()            //temp based control
-  {
 
-  if (tempIn > 70)
-  {
-
-    if ((tempIn > tempOut + lowTemp) && (tempIn <= tempOut + medTemp) && automode && !variableFan)      //threshold temps for low auto speed here
-    {
-      analogWrite(fanpwr, pwmLow);                                           //low pwm setting here
-      fanmode = "Low";
-    }
-    else if ((tempIn > tempOut + medTemp) && (tempIn <= tempOut + highTemp) && automode && !variableFan)   //threshold temps for medium auto speed here
-    {
-      analogWrite(fanpwr, pwmMed);                                           //medium pwm setting here
-      fanmode = "Medium";
-    }
-    else if ((tempIn > tempOut + highTemp) && automode && !variableFan)                            //threshold temps for high auto speed here
-    {
-      analogWrite(fanpwr, pwmHigh);                                           //high pwm setting here maximum is 255(not actually pwm anymore)
-      fanmode = "High";
-    }
-  }
-  else if (tempIn <= 70 && automode)                                                    //auto mode is true if manual mode is off
-  {
-    analogWrite(fanpwr, 0);                                             //fan is off if non of above criteria is met
-    fanmode = "Off";
-  }
-  }
-*/
 void setpwm()
 {
   Serial.println("Value from 0 to 255 for fan low power setting.(default 70)");
@@ -710,8 +648,8 @@ void serialoutput()
   Serial.print("-------------------------------\r\n");
 }
 
-void pollTime()
-{
+void pollTime(){
+  
   Serial.println("Seconds the controller should check to see if it should do somthing in automode(default 10)");
   while (Serial.available() == 0) ;  // Wait here until input buffer has a character
   {
