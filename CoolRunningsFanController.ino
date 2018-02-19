@@ -100,7 +100,7 @@ void pollTime();
 int readtemps(DeviceAddress);
 void serialoutput();
 void autoFan();
-
+void variableFanPercent();
 
 void setup() {
   // start serial port to show results
@@ -146,7 +146,6 @@ void loop() {
   handleSerial();
   autocontrol();
 
-
   disparity = (tempIn - tempOut);
 
   if (millis() - lastmillis_fan >= 2000)         // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
@@ -188,6 +187,7 @@ void loop() {
   if ( variableFan == true) {
     autoFan();
     fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
+    variableFanPercent();
     lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
     lcd.print("T1 ");
     lcd.print(tempIn, 1);                       //print temperature and show one decimal place
@@ -648,8 +648,8 @@ void serialoutput()
   Serial.print("-------------------------------\r\n");
 }
 
-void pollTime(){
-  
+void pollTime() {
+
   Serial.println("Seconds the controller should check to see if it should do somthing in automode(default 10)");
   while (Serial.available() == 0) ;  // Wait here until input buffer has a character
   {
@@ -676,7 +676,6 @@ void autoFan() {
 
   multiplier = (255 / highTemp);                //how much the pwm should be affected by each degree changed
   offSet = (pwmLow - (lowTemp * multiplier));   //when lowTemp threshold is met, increase pwm to pwmLow value
-  disparity = (tempIn - tempOut);
 
   if (tempIn >= (tempOut + lowTemp)) {
     pwmFan = ((disparity * multiplier) + offSet);
@@ -685,10 +684,12 @@ void autoFan() {
     pwmFan = 0;
   }
   analogWrite(fanpwr, pwmFanConst);
+}
 
 
-  //Set fan mode which controls indicator LEDs
-  if (fanPercent == 0) {                            //The fan won't spin until ~27% power(70PWM), move the scale up a bit to compensate.
+void variableFanPercent() {                             //Set fan mode which controls indicator LEDs
+
+  if (fanPercent == 0) {                                //The fan won't spin until ~27% power(70PWM), move the scale up a bit to compensate.
     fanmode = "Off";
   }
   else if ((fanPercent <= 51) && (fanPercent > 0)) {
