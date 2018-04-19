@@ -3,18 +3,15 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <LiquidCrystal_I2C.h>
-/*-----( Declare Constants and Pin Numbers )-----*/
-#define ONE_WIRE_BUS_PIN 11  // Must be Digital Pin
-/*-----( Declare objects )-----*/
-// Setup a oneWire instance to communicate with any OneWire devices
-OneWire oneWire(ONE_WIRE_BUS_PIN);
 
-// Pass our oneWire reference to Dallas Temperature.
-DallasTemperature sensors(&oneWire);
+#define ONE_WIRE_BUS                    //New One-Wire dual bus implementation
+OneWire oneWireA(11);
+OneWire oneWireB(12);
+DallasTemperature sensorsA(&oneWireA);
+DallasTemperature sensorsB(&oneWireB);
 
 LiquidCrystal_I2C lcd(0x3F, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);             // Set the LCD I2C address different for some modules
-DeviceAddress Probe01 = { 0x28, 0xFF, 0x4E, 0xD6, 0xC1, 0x16, 0x04, 0xD4 };  //Add unique onewire sensor DS18B20 IDs here
-DeviceAddress Probe02 = { 0x28, 0xFF, 0xAC, 0x8F, 0x90, 0x16, 0x05, 0x48 };
+
 
 /*-----( Declare Variables )-----*/
 int fanpwr = 9;   //Fan Pin Must be PWM pin
@@ -97,7 +94,7 @@ void autocontrol();
 void setpwm();
 void setTemp();
 void pollTime();
-int readtemps(DeviceAddress);
+void readtemps();
 void serialoutput();
 void autoFan();
 void variableFanPercent();
@@ -108,30 +105,27 @@ void setup() {
   lcd.begin(16, 2);  // initialize the lcd for 16 chars 2 lines, turn on backlight
 
   // Initialize the Temperature measurement library
-  sensors.begin();
-  Serial.println("CoolRunnings v2.0");
+
+  Serial.println("CoolRunnings v2.2 (Board v3.1)");
   Serial.print("Initializing Temperature Control Library Version ");
   Serial.println(DALLASTEMPLIBVERSION);
-  Serial.print("Tempurature sensors found = ");
-  Serial.print(sensors.getDeviceCount());
-  Serial.println();
   Serial.println("Type o to view control output");          //print these commands during setup
   Serial.println("Type ? to view command list");
 
   lcd.setCursor(1, 0); //Start at character 0 on line 0
   lcd.print("Cool Runnings");
   lcd.setCursor(0, 1); //Start at character 0 on line 1
-  lcd.print("Fan Control v2.0");
+  lcd.print("Fan Control v2.2");
 
   pinMode(hallsensor1 , INPUT);
   pinMode(hallsensor2 , INPUT);
   attachInterrupt(0, rpm1, FALLING);
   attachInterrupt(1, rpm2, FALLING);
 
-  // set the resolution to 10 bit (Can be 9 to 12 bits .. lower is faster)
-  sensors.setResolution(Probe01, 10);
-  sensors.setResolution(Probe02, 10);
 
+  // set the resolution to 10 bit (Can be 9 to 12 bits .. lower is faster)
+  sensorsA.begin();
+  sensorsB.begin();
 
 
   TCCR1B = (TCCR1B & 0b11111000) | 0x05;  //for 30Hz pwm on pins 9 and 10. RPM reading works best with current filter capacitor values. Slight audible fan noise.
@@ -142,7 +136,7 @@ void setup() {
 void loop() {
 
 
-  readtemps(Probe01);
+  readtemps();
   handleSerial();
   autocontrol();
 
@@ -176,7 +170,8 @@ void loop() {
     lastmillis_term = millis();                   // Update lasmillis
     // Command all devices on bus to read temperature
 
-    sensors.requestTemperatures(); //Request temperatues at interval to avoid minor fluctuation at temp threshold value triggering fan
+    sensorsA.requestTemperatures(); // Send the command to get temperature readings
+    sensorsB.requestTemperatures(); //Request temperatues at interval to avoid minor fluctuation at temp threshold value triggering fan
 
     if (autoupdate == true) //print values at the interval the code is run if autoupdate is enabled
     {
@@ -184,10 +179,11 @@ void loop() {
     }
   }
 
-  if ( variableFan == true) {
+  if (variableFan) {
     autoFan();
     fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
     variableFanPercent();
+
     lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
     lcd.print("T1 ");
     lcd.print(tempIn, 1);                       //print temperature and show one decimal place
@@ -203,8 +199,7 @@ void loop() {
     lcd.print(disparity, 1);
     lcd.print("   ");
   }
-  else
-  {
+  else if (!variableFan) {
     lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
     lcd.print("T1 ");
     lcd.print(tempIn, 1);                       //print temperature and show one decimal place
@@ -217,17 +212,16 @@ void loop() {
     lcd.print("Fan: ");
   }
 
-  if (automode == true)
-  {
+  if (automode == true) {
     lcd.print("Auto ");
+    lcd.print(fanmode);
+    lcd.print("   ");
   }
-  else
-  {
+  else if (!automode && !variableFan) {
     lcd.print("Manual ");
+    lcd.print(fanmode);
+    lcd.print("   ");
   }
-  lcd.print(fanmode);
-  lcd.print("   ");
-
 
   lowled = digitalRead(gled); // read state of fan low speed led
 
@@ -401,17 +395,17 @@ void handleSerial() {
   }
 }
 
-int readtemps(DeviceAddress)   //temp sensor reading
+void readtemps()   //temp sensor reading
 {
   if (contemp == true)
   {
-    tempOut = sensors.getTempF(Probe01);
-    tempIn = sensors.getTempF(Probe02);
+    tempIn = (sensorsA.getTempFByIndex(0));
+    tempOut = (sensorsB.getTempFByIndex(0));
   }
   else
   {
-    tempOut = sensors.getTempC(Probe01);
-    tempIn = sensors.getTempC(Probe02);
+    tempIn = (sensorsA.getTempCByIndex(0));
+    tempOut = (sensorsB.getTempCByIndex(0));
   }
 }
 
