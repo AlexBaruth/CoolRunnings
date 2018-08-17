@@ -3,6 +3,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <LiquidCrystal_I2C.h>
+#include <EEPROM.h>
 
 #define ONE_WIRE_BUS                    //New One-Wire dual bus implementation
 OneWire oneWireA(11);
@@ -31,25 +32,38 @@ int rpmcalc1;
 int rpmcalc2;
 volatile unsigned long calcsec1;
 volatile unsigned long calcsec2;
-boolean automode = true;
+boolean automode;
 char *fanmode;
 boolean manled;
 boolean lowled;
 boolean autobled = true;
 boolean autoupdate = false;
 boolean contemp = true;
-boolean variableFan = false;
+boolean variableFan;
 float tempIn;
 float tempOut;
-int pwmLow = 70;   // PWM defaults
-int pwmMed = 120;
-int pwmHigh = 255;
-float lowTemp = 1; //temperature defaults
-float medTemp = 4;
-float highTemp = 6;
+int pwmLow;   
+int pwmMed;
+int pwmHigh;
+
+float lowTemp = 0.0; //temperature defaults
+float medTemp = 0.0;
+float highTemp = 0.0;
+
+int lowSet = 0;        //eeprom location for pwm
+int medSet = 1;
+int highSet = 2;
+int timeSet = 3;       //eeprom location for poll interval
+int variableFanSet = 4;
+int autoFanSet = 5;
+int conTempSet = 6;
+int lowTempAdd = 10;    //eeprom location for temp
+int medTempAdd = 15;
+int highTempAdd = 20;
+
 char junk = ' ';
-unsigned long looptime = 10000;
-unsigned long looptimeSec = 10;
+unsigned long looptime;
+unsigned long looptimeSec;
 
 int pwmFan = 0;
 int pwmFanConst = 0;
@@ -106,7 +120,7 @@ void setup() {
 
   // Initialize the Temperature measurement library
 
-  Serial.println("CoolRunnings v2.2 (Board v3.1)");
+  Serial.println("CoolRunnings v2.3 (Board v3.1)");  
   Serial.print("Initializing Temperature Control Library Version ");
   Serial.println(DALLASTEMPLIBVERSION);
   Serial.println("Type o to view control output");          //print these commands during setup
@@ -115,7 +129,7 @@ void setup() {
   lcd.setCursor(1, 0); //Start at character 0 on line 0
   lcd.print("Cool Runnings");
   lcd.setCursor(0, 1); //Start at character 0 on line 1
-  lcd.print("Fan Control v2.2");
+  lcd.print("Fan Control v2.3");
 
   pinMode(hallsensor1 , INPUT);
   pinMode(hallsensor2 , INPUT);
@@ -127,7 +141,19 @@ void setup() {
   sensorsA.begin();
   sensorsB.begin();
 
-
+  pwmLow = EEPROM.read(lowSet);
+  pwmMed = EEPROM.read(medSet);
+  pwmHigh = EEPROM.read(highSet);
+  looptimeSec = EEPROM.read(timeSet);
+  looptime = (looptimeSec * 1000);
+  variableFan = EEPROM.read(variableFanSet);
+  automode = EEPROM.read(autoFanSet);
+  contemp = EEPROM.read(conTempSet);
+  
+  lowTemp = EEPROM.get(lowTempAdd, lowTemp);
+  medTemp = EEPROM.get(medTempAdd, medTemp);
+  highTemp = EEPROM.get(highTempAdd, highTemp);
+ 
   TCCR1B = (TCCR1B & 0b11111000) | 0x05;  //for 30Hz pwm on pins 9 and 10. RPM reading works best with current filter capacitor values. Slight audible fan noise.
   //   TCCR1B = (TCCR1B & 0b11111000) | 0x01;  //for 31KHz pwm on pins 9 and 10. effective pwm range is good, but unable to find filter capacitor values to elminate pwm noise. audible noise is gone.
 
@@ -277,6 +303,8 @@ void handleSerial() {
       case 'a':
         automode = true;
         variableFan = false;
+        EEPROM.write(variableFanSet, variableFan);
+        EEPROM.write(autoFanSet, automode);
         break;
 
       case 'l':
@@ -333,10 +361,12 @@ void handleSerial() {
 
       case 'f':
         contemp = true;
+        EEPROM.write(conTempSet, contemp);
         break;
 
       case 'c':
         contemp = false;
+        EEPROM.write(conTempSet, contemp);
         break;
 
       case 't':
@@ -366,6 +396,8 @@ void handleSerial() {
       case 'v':
         variableFan = true;
         automode = false;
+        EEPROM.write(variableFanSet, variableFan);
+        EEPROM.write(autoFanSet, automode);
         break;
 
       case '?':
@@ -381,10 +413,10 @@ void handleSerial() {
         Serial.println(F("b = LCD Backlight Bright"));
         Serial.println(F("d = LCD Backlight Dark"));
         Serial.println(F("u = Auto Backlight Mode"));
+        Serial.println(F("q = Restart LCD display"));
         Serial.println(F("r = Auto Update Terminal(Recurring)"));
         Serial.println(F("s = Stop Auto Update Terminal"));
         Serial.println(F("f = Switch to Fahrenheit"));
-        Serial.println(F("q = Restart LCD display"));
         Serial.println(F("c = Switch to Celsius"));
         Serial.println(F("p = Set PWM values(Advanced)"));
         Serial.println(F("t = Set temperature thresholds(Advanced)"));
@@ -441,6 +473,7 @@ void setpwm()
   {
     // read the incoming byte:
     pwmLow = Serial.parseFloat();
+    EEPROM.write(lowSet, pwmLow);
     // say what you got:
     Serial.print("Value set to: ");
     Serial.println(pwmLow, DEC);
@@ -453,6 +486,7 @@ void setpwm()
   while (Serial.available() == 0) ;
   {
     pwmMed = Serial.parseFloat();
+    EEPROM.write(medSet, pwmMed);
     Serial.print("Value set to: ");
     Serial.println(pwmMed, DEC);
     while (Serial.available() > 0)
@@ -463,6 +497,7 @@ void setpwm()
   Serial.println("Value between 0 and 255 for fan High power setting. (default 255)");
   while (Serial.available() == 0) ;
   pwmHigh = Serial.parseFloat();
+  EEPROM.write(highSet, pwmHigh);
   Serial.print("Value set to: ");
   Serial.println(pwmHigh, DEC);
   Serial.println("Done!");
@@ -481,6 +516,7 @@ void setTemp()
   {
     // read the incoming byte:
     lowTemp = Serial.parseFloat();
+    EEPROM.put(lowTempAdd, lowTemp);
     // say what you got:
     Serial.print("Value set to: ");
     Serial.println(lowTemp, 2);
@@ -493,6 +529,7 @@ void setTemp()
   while (Serial.available() == 0) ;
   {
     medTemp = Serial.parseFloat();
+    EEPROM.put(medTempAdd, medTemp);
     Serial.print("Value set to: ");
     Serial.println(medTemp, 2);
     while (Serial.available() > 0)
@@ -503,6 +540,7 @@ void setTemp()
   Serial.println("Degrees sensor 1 must differ from sensor 2 for high power setting. (default 6)");
   while (Serial.available() == 0) ;
   highTemp = Serial.parseFloat();
+  EEPROM.put(highTempAdd, highTemp);
   Serial.print("Value set to: ");
   Serial.println(highTemp, 2);
   Serial.println("Done!");
@@ -647,8 +685,10 @@ void pollTime() {
   Serial.println("Seconds the controller should check to see if it should do somthing in automode(default 10)");
   while (Serial.available() == 0) ;  // Wait here until input buffer has a character
   {
-    // read the incoming byte:
+    // read the incoming byte:    
     looptimeSec = Serial.parseFloat();
+    looptimeSec = constrain(looptimeSec, 1, 255);
+    EEPROM.write(timeSet, looptimeSec);
     // say what you got:
     Serial.print("Value set to: ");
     Serial.println(looptimeSec, DEC);
@@ -662,7 +702,6 @@ void pollTime() {
 }
 
 void autoFan() {
-  variableFan = true;
   pwmFanConst = constrain(pwmFan, 0, 255);
 
   int offSet;
