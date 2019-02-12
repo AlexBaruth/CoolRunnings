@@ -33,7 +33,7 @@ volatile unsigned long calcsec1;
 volatile unsigned long calcsec2;
 boolean automode;
 char *fanmode;
-boolean manled;
+boolean manLed;
 boolean lowled;
 boolean autobled = true;
 boolean autoupdate = false;
@@ -255,11 +255,11 @@ void loop() {
   lowled = digitalRead(gled); // read state of fan low speed led
 
   //Backlight controls
-  if (manled == false && autobled == false) //manual off
+  if (manLed == false && autobled == false) //manual off
   {
     lcd.noBacklight();
   }
-  if (manled == true && autobled == false) //manual on
+  if (manLed == true && autobled == false) //manual on
   {
     lcd.backlight();
   }
@@ -339,15 +339,16 @@ void handleSerial() {
         break;
 
       case 'b':
-        lcd.backlight();
-        manled = true;
-        autobled = false;
-        break;
-
-      case 'd':
-        lcd.noBacklight();
-        manled = false;
-        autobled = false;
+        if (!manLed) {
+          lcd.backlight();
+          manLed = true;
+          autobled = false;
+        }
+        else {
+          lcd.noBacklight();
+          manLed = false;
+          autobled = false;
+        }
         break;
 
       case 'u':           //enable automatic backlight
@@ -423,15 +424,13 @@ void handleSerial() {
         Serial.println(F("m = Manual Fan Medium"));
         Serial.println(F("h = Manual Fan High"));
         Serial.println(F("k = Manual Fan Kill"));
-        Serial.println(F("b = LCD Backlight Bright"));
-        Serial.println(F("d = LCD Backlight Dark"));
+        Serial.println(F("b = Toggle On/Off backlight"));
         Serial.println(F("u = Auto Backlight Mode"));
         Serial.println(F("q = Restart LCD display"));
         Serial.println(F("r = Auto Update Terminal(Recurring)"));
         Serial.println(F("s = Stop Auto Update Terminal"));
         Serial.println(F("f = Toggle temperature from F to C"));
-        Serial.println(F("w = Switch T1 to T2"));
-        Serial.println(F("e = Switch T2 to T1"));
+        Serial.println(F("w = Toggle T1 and T2"));
         Serial.println(F("p = Set PWM values(Advanced)"));
         Serial.println(F("t = Set temperature thresholds(Advanced)"));
         Serial.println(F("i = Set timer interval(Advanced)"));
