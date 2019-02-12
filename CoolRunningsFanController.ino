@@ -37,7 +37,7 @@ boolean manled;
 boolean lowled;
 boolean autobled = true;
 boolean autoupdate = false;
-boolean contemp = true;
+boolean conTemp = true;
 boolean variableFan;
 boolean switchTemp;
 float tempIn;
@@ -150,15 +150,15 @@ void setup() {
   looptime = (looptimeSec * 1000);
   variableFan = EEPROM.read(variableFanSet);
   automode = EEPROM.read(autoFanSet);
-  contemp = EEPROM.read(conTempSet);
+  conTemp = EEPROM.read(conTempSet);
   switchTemp = EEPROM.read(switchTempSet);
 
   lowTemp = EEPROM.get(lowTempAdd, lowTemp);
   medTemp = EEPROM.get(medTempAdd, medTemp);
   highTemp = EEPROM.get(highTempAdd, highTemp);
 
-  //TCCR1B = (TCCR1B & 0b11111000) | 0x05;  //for 30Hz pwm on pins 9 and 10. RPM reading works best with current filter capacitor values. Slight audible fan noise.
-  TCCR1B = (TCCR1B & 0b11111000) | 0x01;  //for 31KHz pwm on pins 9 and 10. effective pwm range is good, but unable to find filter capacitor values to elminate pwm noise. audible noise is gone.
+  TCCR1B = (TCCR1B & 0b11111000) | 0x05;  //for 30Hz pwm on pins 9 and 10. RPM reading works best with current filter capacitor values. Slight audible fan noise.
+  //TCCR1B = (TCCR1B & 0b11111000) | 0x01;  //for 31KHz pwm on pins 9 and 10. effective pwm range is good, but unable to find filter capacitor values to elminate pwm noise. audible noise is gone.
 
 }       //--(end setup )---
 
@@ -363,13 +363,13 @@ void handleSerial() {
         break;
 
       case 'f':
-        contemp = true;
-        EEPROM.write(conTempSet, contemp);
-        break;
-
-      case 'c':
-        contemp = false;
-        EEPROM.write(conTempSet, contemp);
+        if (conTemp) {
+          conTemp = false;
+        }
+        else {
+          conTemp = true;
+        }
+        EEPROM.write(conTempSet, conTemp);
         break;
 
       case 't':
@@ -396,7 +396,7 @@ void handleSerial() {
         if (switchTemp) {
           switchTemp = false;
         }
-        else if (!switchTemp) {
+        else {
           switchTemp = true;
         }
         EEPROM.write(switchTempSet, switchTemp);
@@ -429,8 +429,7 @@ void handleSerial() {
         Serial.println(F("q = Restart LCD display"));
         Serial.println(F("r = Auto Update Terminal(Recurring)"));
         Serial.println(F("s = Stop Auto Update Terminal"));
-        Serial.println(F("f = Switch to Fahrenheit"));
-        Serial.println(F("c = Switch to Celsius"));
+        Serial.println(F("f = Toggle temperature from F to C"));
         Serial.println(F("w = Switch T1 to T2"));
         Serial.println(F("e = Switch T2 to T1"));
         Serial.println(F("p = Set PWM values(Advanced)"));
@@ -444,19 +443,19 @@ void handleSerial() {
 }
 
 void readtemps() { //temp sensor reading
-  if (contemp  && switchTemp) {
+  if (conTemp  && switchTemp) {
     tempIn = (sensorsA.getTempFByIndex(0));
     tempOut = (sensorsB.getTempFByIndex(0));
   }
-  if (!contemp && switchTemp) {
+  if (!conTemp && switchTemp) {
     tempIn = (sensorsA.getTempCByIndex(0));
     tempOut = (sensorsB.getTempCByIndex(0));
   }
-  if (!contemp && !switchTemp) {
+  if (!conTemp && !switchTemp) {
     tempOut = (sensorsA.getTempCByIndex(0));
     tempIn = (sensorsB.getTempCByIndex(0));
   }
-  if (contemp && !switchTemp) {
+  if (conTemp && !switchTemp) {
     tempOut = (sensorsA.getTempFByIndex(0));
     tempIn = (sensorsB.getTempFByIndex(0));
   }
@@ -578,7 +577,7 @@ void serialoutput()
   Serial.print("Control Information:   \r\n");
   Serial.print("TempInside:  ");
   Serial.print(tempIn);
-  if (contemp)
+  if (conTemp)
   {
     Serial.print(" F");
   }
@@ -589,7 +588,7 @@ void serialoutput()
   Serial.println();
   Serial.print("TempOutside: ");
   Serial.print(tempOut);
-  if (contemp)
+  if (conTemp)
   {
     Serial.print(" F");
   }
@@ -665,7 +664,7 @@ void serialoutput()
   if (lowTemp != 1) {
     Serial.print("Low Temp Threshold: +");
     Serial.print(lowTemp);
-    if (contemp)
+    if (conTemp)
     {
       Serial.println(" F");
     }
@@ -679,7 +678,7 @@ void serialoutput()
     Serial.print("Medium Temp Threshold: +");
     Serial.print(medTemp);
 
-    if (contemp) {
+    if (conTemp) {
       Serial.println(" F");
     }
     else {
@@ -690,7 +689,7 @@ void serialoutput()
   if (highTemp != 6) {
     Serial.print("High Temp Threshold: +");
     Serial.print(highTemp);
-    if (contemp)
+    if (conTemp)
     {
       Serial.println(" F");
     }
