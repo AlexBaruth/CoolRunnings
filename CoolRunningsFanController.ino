@@ -353,6 +353,7 @@ void handleSerial() {
 
       case 'u':           //enable automatic backlight
         autobled = true;
+        manLed = false;
         break;
 
       case 'r':
@@ -435,7 +436,6 @@ void handleSerial() {
         Serial.println(F("t = Set temperature thresholds(Advanced)"));
         Serial.println(F("i = Set timer interval(Advanced)"));
         Serial.println(F("? = Print Command List"));
-
         break;
     }
   }
