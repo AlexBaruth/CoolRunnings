@@ -339,7 +339,7 @@ void handleSerial() {
         break;
 
       case 'b':
-        if (!manLed) {
+        if (!lcd.getBacklight()) {
           lcd.backlight();
           manLed = true;
           autobled = false;
