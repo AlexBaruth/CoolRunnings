@@ -20,6 +20,7 @@ int yled = 8;     //Yellow LED
 int rled = 7;     //Red LED
 unsigned long lastmillis_term = 0;
 unsigned long lastmillis_fan = 0;
+unsigned long lastmillis_temp = 0;
 volatile unsigned long NbTopsFan1;
 volatile unsigned long NbTopsFan2;
 int hallsensor1 = 2;                    //Arduino pins 2 and 3 must be used - interrupt 0
@@ -156,9 +157,13 @@ void setup() {
 
 }       //--(end setup )---
 
-void loop() {
+void loop() {  
 
-  handleSerial();
+  if (millis() - lastmillis_temp >= 500) {        //run these every half second
+    lastmillis_temp = millis();
+    handleSerial();
+    readtemps();
+  }
 
   if (millis() - lastmillis_fan >= 2000) {        // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
     lastmillis_fan = millis();
@@ -180,7 +185,6 @@ void loop() {
     sensorsA.requestTemperatures(); //get temperature readings
     sensorsB.requestTemperatures();
 
-    readtemps();
     autocontrol();
 
     if (autoupdate == true) //print values at the interval the code is run if autoupdate is enabled
