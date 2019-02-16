@@ -20,7 +20,6 @@ int yled = 8;     //Yellow LED
 int rled = 7;     //Red LED
 unsigned long lastmillis_term = 0;
 unsigned long lastmillis_fan = 0;
-unsigned long previousMillis = 0;
 volatile unsigned long NbTopsFan1;
 volatile unsigned long NbTopsFan2;
 int hallsensor1 = 2;                    //Arduino pins 2 and 3 must be used - interrupt 0
@@ -118,10 +117,7 @@ void variableFanPercent();
 void setup() {
   // start serial port to show results
   Serial.begin(9600);
-  lcd.begin();  // initialize the lcd for 16 chars 2 lines, turn on backlight
-
-  // Initialize the Temperature measurement library
-
+  lcd.begin();
   Serial.println("CoolRunnings v2.3 (Board v3.1)");
   Serial.print("Initializing Temperature Control Library Version ");
   Serial.println(DALLASTEMPLIBVERSION);
@@ -138,8 +134,6 @@ void setup() {
   attachInterrupt(0, rpm1, FALLING);
   attachInterrupt(1, rpm2, FALLING);
 
-
-  // set the resolution to 10 bit (Can be 9 to 12 bits .. lower is faster)
   sensorsA.begin();
   sensorsB.begin();
 
@@ -164,49 +158,36 @@ void setup() {
 
 void loop() {
 
-
-  readtemps();
   handleSerial();
-  autocontrol();
 
-  disparity = (tempIn - tempOut);
-
-  if (millis() - lastmillis_fan >= 2000)         // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
-  {
-    lastmillis_fan = millis();                   // Update lasmillis
-    // Command all devices on bus to read temperature
+  if (millis() - lastmillis_fan >= 2000) {        // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
+    lastmillis_fan = millis();
 
     totcalc1 = ((NbTopsFan1 ) / fanspace1[fan1].fandiv1);
     totcalc2 = ((NbTopsFan2 ) / fanspace2[fan2].fandiv2);
-    unsigned long currentMillis = millis();
-
-    previousMillis = currentMillis;  //Is this supposed to be here?
 
     rpmcalc1 = ((totcalc1 - calcsec1) * 60 / 2 ); //calculate rpm, divide by number of seconds which timer is run
     rpmcalc2 = ((totcalc2 - calcsec2) * 60 / 2); //count for a few seconds and divide for a smoother result
 
-    if (previousMillis == currentMillis)    //store total rpm calculations at each interval
-    {
-      calcsec1 = totcalc1;
-      calcsec2 = totcalc2;
-    }
+    calcsec1 = totcalc1;
+    calcsec2 = totcalc2;
 
   }// End fan code here
 
-
   if (millis() - lastmillis_term >= looptime) {       // Interval at which to run code
-
     lastmillis_term = millis();                   // Update lasmillis
-    // Command all devices on bus to read temperature
 
-    sensorsA.requestTemperatures(); // Send the command to get temperature readings
-    sensorsB.requestTemperatures(); //Request temperatues at interval to avoid minor fluctuation at temp threshold value triggering fan
+    sensorsA.requestTemperatures(); //get temperature readings
+    sensorsB.requestTemperatures();
+
+    readtemps();
+    autocontrol();
 
     if (autoupdate == true) //print values at the interval the code is run if autoupdate is enabled
     {
       serialoutput();
     }
-  }
+  } //end polling interval code
 
   if (variableFan) {
     autoFan();
@@ -296,7 +277,7 @@ void loop() {
     analogWrite(yled, 255);
     analogWrite(rled, 255);
   }
-}
+} //end loop
 
 void handleSerial() {
 
@@ -445,18 +426,22 @@ void readtemps() { //temp sensor reading
   if (conTemp  && switchTemp) {
     tempIn = (sensorsA.getTempFByIndex(0));
     tempOut = (sensorsB.getTempFByIndex(0));
+    disparity = (tempIn - tempOut);  //calculate disparity after polling sensor
   }
   if (!conTemp && switchTemp) {
     tempIn = (sensorsA.getTempCByIndex(0));
     tempOut = (sensorsB.getTempCByIndex(0));
+    disparity = (tempIn - tempOut);
   }
   if (!conTemp && !switchTemp) {
     tempOut = (sensorsA.getTempCByIndex(0));
     tempIn = (sensorsB.getTempCByIndex(0));
+    disparity = (tempIn - tempOut);
   }
   if (conTemp && !switchTemp) {
     tempOut = (sensorsA.getTempFByIndex(0));
     tempIn = (sensorsB.getTempFByIndex(0));
+    disparity = (tempIn - tempOut);
   }
 }
 
