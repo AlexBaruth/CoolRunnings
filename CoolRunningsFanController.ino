@@ -147,7 +147,6 @@ void setup() {
   automode = EEPROM.read(autoFanSet);
   conTemp = EEPROM.read(conTempSet);
   switchTemp = EEPROM.read(switchTempSet);
-
   lowTemp = EEPROM.get(lowTempAdd, lowTemp);
   medTemp = EEPROM.get(medTempAdd, medTemp);
   highTemp = EEPROM.get(highTempAdd, highTemp);
@@ -158,12 +157,6 @@ void setup() {
 }       //--(end setup )---
 
 void loop() {  
-
-  if (millis() - lastmillis_temp >= 500) {        //run these every half second
-    lastmillis_temp = millis();
-    handleSerial();
-    readtemps();
-  }
 
   if (millis() - lastmillis_fan >= 2000) {        // Interval at which to run fan rpm code. If this changes, so does the divider for rpmcaclc1/2
     lastmillis_fan = millis();
@@ -179,8 +172,8 @@ void loop() {
 
   }// End fan code here
 
-  if (millis() - lastmillis_term >= looptime) {       // Interval at which to run code
-    lastmillis_term = millis();                   // Update lasmillis
+  if (millis() - lastmillis_term >= looptime) {  // Interval at which to run serial update and fan power code
+    lastmillis_term = millis();                  
 
     sensorsA.requestTemperatures(); //get temperature readings
     sensorsB.requestTemperatures();
@@ -193,6 +186,11 @@ void loop() {
     }
   } //end polling interval code
 
+  if (millis() - lastmillis_temp >= 500) {        //Put stuff here that doesn't need to run continuously
+    lastmillis_temp = millis();
+    handleSerial();
+    readtemps();
+  
   if (variableFan) {
     autoFan();
     fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
@@ -280,6 +278,7 @@ void loop() {
     analogWrite(gled, 255);
     analogWrite(yled, 255);
     analogWrite(rled, 255);
+  }
   }
 } //end loop
 
