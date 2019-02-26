@@ -1,5 +1,5 @@
 ARDUINO_DIR  = /usr/share/arduino
-ARDUINO_LIBS = OneWire DallasTemperature LiquidCrystal_I2C Wire
+ARDUINO_LIBS = EEPROM OneWire DallasTemperature LiquidCrystal_I2C Wire
 ARUDINO_LIB_PATH = /usr/share/arduino/libraries
 BOARD_TAG    = uno
 ARDUINO_PORT = /dev/ttyUSB0
