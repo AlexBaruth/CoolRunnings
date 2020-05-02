@@ -48,8 +48,10 @@ int pwmLow;
 int pwmMed;
 int pwmHigh;
 
-float lowTemp = 0.0; //temperature defaults
+float lowTempOff = 0.0; //temperature defaults
+float lowTempOn = 0.0;
 float highTemp = 0.0;
+
 
 int lowSet = 0;        //eeprom location for pwm
 int medSet = 1;
@@ -59,7 +61,8 @@ int variableFanSet = 4;
 int autoFanSet = 5;
 int conTempSet = 6;
 int switchTempSet = 7;
-int lowTempAdd = 10;    //eeprom location for temp
+int lowTempOffAdd = 10;    //eeprom location for temp
+int lowTempOnAdd = 15;
 int highTempAdd = 20;
 
 char junk = ' ';
@@ -145,7 +148,8 @@ void setup() {
   manualMode = EEPROM.read(autoFanSet);
   conTemp = EEPROM.read(conTempSet);
   switchTemp = EEPROM.read(switchTempSet);
-  lowTemp = EEPROM.get(lowTempAdd, lowTemp);
+  lowTempOff = EEPROM.get(lowTempOffAdd, lowTempOff);
+  lowTempOn = EEPROM.get(lowTempOnAdd, lowTempOn);
   highTemp = EEPROM.get(highTempAdd, highTemp);
 
   TCCR1B = (TCCR1B & 0b11111000) | 0x05;  //for 30Hz pwm on pins 9 and 10. RPM reading works best with current filter capacitor values. Slight audible fan noise.
@@ -541,23 +545,36 @@ void setpwm()
 
 void setTemp()
 {
-  Serial.println("Degrees sensor 1 must differ from sensor 2 for low power setting.(default 1)");
-  while (Serial.available() == 0) ;  // Wait here until input buffer has a character
-  {
+  Serial.println("Degrees difference to turn fan on when off.(default 2)");
+  while (Serial.available() == 0) ; { // Wait here until input buffer has a character
+
     // read the incoming byte:
-    lowTemp = Serial.parseFloat();
-    EEPROM.put(lowTempAdd, lowTemp);
+    lowTempOff = Serial.parseFloat();
+    EEPROM.put(lowTempOffAdd, lowTempOff);
     // say what you got:
     Serial.print("Value set to: ");
-    Serial.println(lowTemp, 2);
+    Serial.println(lowTempOff, 2);
     while (Serial.available() > 0)  // .parseFloat() can leave non-numeric characters
     {
       junk = Serial.read() ;  // clear the keyboard buffer
     }
   }
 
-  Serial.println("Degrees sensor 1 must differ from sensor 2 for high power setting. (default 6)");
-  while (Serial.available() == 0) ;
+  Serial.println("Degrees difference to turn fan off when on. Should be less than previous value(default 1)");
+  while (Serial.available() == 0); {
+  lowTempOn = Serial.parseFloat();
+  EEPROM.put(lowTempOnAdd, lowTempOn);
+  Serial.print("Value set to: ");
+  Serial.println(lowTempOn, 2);
+  Serial.println("Done!");
+  while (Serial.available() > 0)
+  {
+    junk = Serial.read() ;
+  }
+}
+
+  Serial.println("Degrees difference for full power.(default 6)");
+  while (Serial.available() == 0);{
   highTemp = Serial.parseFloat();
   EEPROM.put(highTempAdd, highTemp);
   Serial.print("Value set to: ");
@@ -568,7 +585,7 @@ void setTemp()
     junk = Serial.read() ;
   }
 }
-
+}
 void serialoutput() {
 
   Serial.println();
@@ -655,13 +672,24 @@ void serialoutput() {
     Serial.println(pwmHigh);
   }
 
-  if (lowTemp != 1 || highTemp != 6) {
+  if (lowTempOff != 1 || lowTempOn != 2 || highTemp != 6) {
     Serial.println("Custom Temp Enabled");
   }
 
-  if (lowTemp != 1) {
-    Serial.print("Low Temp Threshold: +");
-    Serial.print(lowTemp);
+  if (lowTempOn != 2) {
+    Serial.print("Low Temp Fan On Threshold: +");
+    Serial.print(lowTempOn);
+    if (conTemp) {
+      Serial.println(" F");
+    }
+    else {
+      Serial.println(" C");
+    }
+  }
+
+  if (lowTempOff != 1) {
+    Serial.print("Low Temp Fan Off Threshold: +");
+    Serial.print(lowTempOff);
     if (conTemp) {
       Serial.println(" F");
     }
@@ -711,9 +739,12 @@ void autoFan() {
   int multiplier;
 
   multiplier = (255 / highTemp);                //how much the pwm should be affected by each degree changed
-  offSet = (pwmLow - (lowTemp * multiplier));   //when lowTemp threshold is met, increase pwm to pwmLow value
+  offSet = (pwmLow - (lowTempOff * multiplier));   //when lowTempOff threshold is met, increase pwm to pwmLow value
 
-  if (tempInAvg >= (tempOutAvg + lowTemp)) {
+  if ((tempInAvg >= (tempOutAvg + lowTempOn  )) && (fanmode > 0)) {
+    pwmFan = ((disparity * multiplier) + offSet);
+  }
+  else if ((tempInAvg >= (tempOutAvg + lowTempOff)) && (fanmode < 1)) {
     pwmFan = ((disparity * multiplier) + offSet);
   }
   else {
