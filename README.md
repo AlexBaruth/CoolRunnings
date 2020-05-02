@@ -9,7 +9,7 @@ Two OneWire DS18B20 temperature sensors.
 
 RPM reading for common three wire PC fans which induce a Hall Effect sensor.
 
-Three speed automatic and manual fan control as well as continuously variable fan speed control. using PWM.
+Three speed manual fan control as well as continuously variable fan speed control. using PWM.
 
 Serial Port communication using a USB to Serial converter(CH340)
 
