@@ -208,9 +208,6 @@ void loop() {
     if (autoupdate == true) {
       serialoutput();
     }
-    if (variableFan) {
-      autoFan();
-    }
   }
 
   if (millis() - lastmillis_avg >= 1000) {        // average the temp reading every second
@@ -240,7 +237,8 @@ void loop() {
 
       fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
       variableFanPercent();
-
+      autoFan();
+      
       lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
       lcd.print("T1 ");
       lcd.print(tempInAvg, 1);                       //print temperature and show one decimal place
@@ -741,10 +739,10 @@ void autoFan() {
   multiplier = (255 / highTemp);                //how much the pwm should be affected by each degree changed
   offSet = (pwmLow - (lowTempOff * multiplier));   //when lowTempOff threshold is met, increase pwm to pwmLow value
 
-  if ((tempInAvg >= (tempOutAvg + lowTempOn  )) && (fanmode > 0)) {
+  if ((tempInAvg >= (tempOutAvg + lowTempOn  )) && (fanmode)) {
     pwmFan = ((disparity * multiplier) + offSet);
   }
-  else if ((tempInAvg >= (tempOutAvg + lowTempOff)) && (fanmode < 1)) {
+  else if ((tempInAvg >= (tempOutAvg + lowTempOff)) && (!fanmode)) {
     pwmFan = ((disparity * multiplier) + offSet);
   }
   else {
