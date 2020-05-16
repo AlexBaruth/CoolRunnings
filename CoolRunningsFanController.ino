@@ -234,10 +234,9 @@ void loop() {
     handleSerial();
 
     if (variableFan) {
-
-      fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
-      variableFanPercent();
       autoFan();
+      fanPercent = ((pwmFanConst / 255.0) * 100); //add .0 after 255 to cast to float
+      variableFanPercent();      
       
       lcd.setCursor(0, 0);                        //Start at character 0 on line 0 and print out lcd information
       lcd.print("T1 ");
